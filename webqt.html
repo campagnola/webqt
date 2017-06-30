@@ -1,0 +1,29 @@
+<html>
+<head>
+    <script language="javascript">
+        var socket;
+        var lastEv;
+        var image;
+        window.onload = function() {
+            console.log('onload');
+            image = document.getElementById("image");
+            socket = new WebSocket('ws://127.0.0.1:12345');
+            socket.onopen = function(ev) {
+                console.log("open: " + ev.currentTarget.URL);
+            }
+            socket.onerror = function(err) {
+                console.log("error: " + err);
+            }
+            socket.onmessage = function(ev) {
+                console.log("recv: " + ev.data);            
+                lastEv = ev;
+                url = URL.createObjectURL(ev.data);
+                image.src = url;
+            }
+        }
+    </script>
+</head>
+<body>
+    <img id="image">
+</body>
+</html>
