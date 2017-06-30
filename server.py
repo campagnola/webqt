@@ -22,12 +22,15 @@ class WebSocketThread(threading.Thread):
             if data is None:
                 asyncio.sleep(0.03)
                 continue
-            img = Image.fromarray(data, 'RGB')
-            f = io.BytesIO()
-            #img.save(f, format='png', compress_level=5)
-            img.save(f, format='jpeg')
-            f.seek(0)
-            await websocket.send(f.read())
+            #img = Image.fromarray(data, 'RGB')
+            #f = io.BytesIO()
+            ##img.save(f, format='png', compress_level=5)
+            #img.save(f, format='jpeg')
+            #f.seek(0)
+            #await websocket.send(f.read())
+            
+            await websocket.send(data)
+            
             await asyncio.sleep(0.01)
 
     def run(self):
@@ -45,9 +48,29 @@ class WebSocketThread(threading.Thread):
 thread = WebSocketThread()
 thread.start()
 
+import PyQt5
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore, QtGui
 
-frames = np.random.normal(size=(10, 800, 800, 3), loc=128, scale=20).astype('ubyte')
+plt = pg.plot([1,4,2,3])
+plt.window().setAttribute(QtCore.Qt.WA_DontShowOnScreen)
 
-for d in itertools.cycle(frames):
-    thread.set_data(d)
-    time.sleep(0.02)
+def update():
+    global ba
+    px = plt.grab()
+    ba = QtCore.QByteArray()
+    buf = QtCore.QBuffer(ba)
+    buf.open(QtCore.QIODevice.WriteOnly)
+    px.save(buf, "JPG")
+    data = ba.data()
+    thread.set_data(data)
+        
+timer = QtCore.QTimer()
+timer.timeout.connect(update)
+timer.start(100)
+
+#frames = np.random.normal(size=(10, 800, 800, 3), loc=128, scale=20).astype('ubyte')
+
+#for d in itertools.cycle(frames):
+    #thread.set_data(d)
+    #time.sleep(0.02)
