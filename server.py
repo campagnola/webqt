@@ -1,7 +1,7 @@
 import numpy as np
 import io
 from PIL import Image
-import threading, time
+import threading, time, itertools
 import asyncio
 import datetime
 import random
@@ -24,7 +24,8 @@ class WebSocketThread(threading.Thread):
                 continue
             img = Image.fromarray(data, 'RGB')
             f = io.BytesIO()
-            img.save(f, format='png')
+            #img.save(f, format='png', compress_level=5)
+            img.save(f, format='jpeg')
             f.seek(0)
             await websocket.send(f.read())
             await asyncio.sleep(0.01)
@@ -45,9 +46,8 @@ thread = WebSocketThread()
 thread.start()
 
 
-for i in range(100):
-    d = np.random.normal(size=(10, 10, 3), loc=128, scale=20).astype('ubyte')
-    thread.set_data(d)
-    time.sleep(0.5)
+frames = np.random.normal(size=(10, 800, 800, 3), loc=128, scale=20).astype('ubyte')
 
-thread.join()
+for d in itertools.cycle(frames):
+    thread.set_data(d)
+    time.sleep(0.02)

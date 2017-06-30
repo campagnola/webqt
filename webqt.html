@@ -17,10 +17,20 @@
             socket.onmessage = function(ev) {
                 console.log("recv: " + ev.data);            
                 lastEv = ev;
-                url = URL.createObjectURL(ev.data);
-                image.src = url;
             }
         }
+            
+        function updateImage() {
+            if( lastEv == undefined ) {
+                return
+            }
+            url = URL.createObjectURL(lastEv.data);
+            image.src = url;
+            lastEv = undefined;
+        }
+        
+        window.setInterval(updateImage, 30)
+        
     </script>
 </head>
 <body>
