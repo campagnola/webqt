@@ -134,6 +134,16 @@ class WebSocketProxy(QtCore.QObject):
         }[ev_type]
         pos = QtCore.QPoint(ev['x'], ev['y'])
         
+        widget = self._mouse_grabber
+        if widget is None:
+            if ev_type == 'mouseRelease':
+                return
+            widget = self.widget.childAt(pos)
+            if widget is None:
+                widget = self.widget
+            if ev_type == 'mouseMove' and not widget.hasMouseTracking():
+                return
+            
         if ev_type == 'mousePress':
             # if this is a press, find the widget under the mouse
             widget = self.widget.childAt(pos)
@@ -141,7 +151,6 @@ class WebSocketProxy(QtCore.QObject):
                 widget = self.widget
         else:
             # for all other types, send the event to the grabber (if any)
-            widget = self._mouse_grabber
             if widget is None:
                 return
         
@@ -176,16 +185,24 @@ class WebSocketProxy(QtCore.QObject):
 
 if __name__ == '__main__':
     pg.mkQApp()
+
+
+    w = pg.PlotWidget()
+    w.plot(np.random.normal(size=10000), antialias=True)
+    w.addLine(x=0, movable=True)
     
-    w = QtGui.QSplitter(QtCore.Qt.Vertical)
+    #w = QtGui.QSplitter(QtCore.Qt.Vertical)
     
-    plt = pg.PlotWidget()
-    plt.plot(np.random.normal(size=100))
-    w.addWidget(plt)
+    #plt = pg.PlotWidget()
+    #plt.plot(np.random.normal(size=100))
+    #w.addWidget(plt)
     
-    import pyqtgraph.console
-    console = pg.console.ConsoleWidget(namespace={'pg': pg, 'plt': plt})
-    w.addWidget(console)
+    #import pyqtgraph.console
+    #console = pg.console.ConsoleWidget(namespace={'pg': pg, 'plt': plt})
+    #w.addWidget(console)
+
+
+
 
     #w.setLayout(l)
     #btns = []
