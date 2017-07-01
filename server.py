@@ -7,6 +7,12 @@ import datetime
 import random
 import websockets
 
+import PyQt5
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtCore, QtGui
+
+
+
 class WebSocketThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
@@ -22,12 +28,6 @@ class WebSocketThread(threading.Thread):
             if data is None:
                 asyncio.sleep(0.03)
                 continue
-            #img = Image.fromarray(data, 'RGB')
-            #f = io.BytesIO()
-            ##img.save(f, format='png', compress_level=5)
-            #img.save(f, format='jpeg')
-            #f.seek(0)
-            #await websocket.send(f.read())
             
             await websocket.send(data)
             
@@ -45,32 +45,47 @@ class WebSocketThread(threading.Thread):
             self.data = data
 
 
-thread = WebSocketThread()
-thread.start()
-
-import PyQt5
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
-
-plt = pg.plot([1,4,2,3])
-plt.window().setAttribute(QtCore.Qt.WA_DontShowOnScreen)
-
-def update():
-    global ba
-    px = plt.grab()
-    ba = QtCore.QByteArray()
-    buf = QtCore.QBuffer(ba)
-    buf.open(QtCore.QIODevice.WriteOnly)
-    px.save(buf, "JPG")
-    data = ba.data()
-    thread.set_data(data)
+class WebSocketProxy(QtCore.QObject):
+    def __init__(self, widget):
+        QtCore.QObject.__init__(self)
+        #widget.setAttribute(QtCore.Qt.WA_DontShowOnScreen)
+        self.widget = widget
+        self.thread = WebSocketThread()
+        self.thread.start()
+        self._installFilter(widget)
+        self._updateTimer = QtCore.QTimer()
+        self._updateTimer.timeout.connect(self._sendUpdate)
         
-timer = QtCore.QTimer()
-timer.timeout.connect(update)
-timer.start(100)
-
-#frames = np.random.normal(size=(10, 800, 800, 3), loc=128, scale=20).astype('ubyte')
-
-#for d in itertools.cycle(frames):
-    #thread.set_data(d)
-    #time.sleep(0.02)
+    def _installFilter(self, obj):
+        obj.installEventFilter(self)
+        for ch in obj.children():
+            self._installFilter(ch)
+    
+    def eventFilter(self, obj, ev):
+        #print (obj, ev)
+        if ev.type() == QtCore.QEvent.Paint:
+            self._updateTimer.start(0)
+            return False
+        elif ev.type() == QtCore.QEvent.ChildAdded:
+            
+            self._installFilter(obj)
+        return False
+    
+    def _sendUpdate(self):
+        px = self.widget.grab()
+        # must come after grab() because it causes a paintEvent
+        self._updateTimer.stop()
+        ba = QtCore.QByteArray()
+        buf = QtCore.QBuffer(ba)
+        buf.open(QtCore.QIODevice.WriteOnly)
+        px.save(buf, "JPG")
+        data = ba.data()
+        self.thread.set_data(data)
+        
+    
+if __name__ == '__main__':
+    pg.mkQApp()
+    plt = pg.PlotWidget()
+    plt.plot(np.random.normal(size=100))
+    plt.show()
+    wsp = WebSocketProxy(plt)

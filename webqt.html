@@ -9,15 +9,32 @@
             image = document.getElementById("image");
             socket = new WebSocket('ws://127.0.0.1:12345');
             socket.onopen = function(ev) {
-                console.log("open: " + ev.currentTarget.URL);
+                //console.log("open: " + ev.currentTarget.URL);
             }
             socket.onerror = function(err) {
                 console.log("error: " + err);
             }
             socket.onmessage = function(ev) {
-                console.log("recv: " + ev.data);            
                 lastEv = ev;
             }
+
+            function mkMouseEvent(ev, type) {
+                return {'event': type, 'x': ev.x, 'y': ev.y, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey}
+            }
+            function onMousePress(ev) {
+                console.log(ev)
+                ws.send(mkMouseEvent(ev, 'mousePress'))
+            }
+            function onMouseRelease(ev) {
+                console.log(ev)
+                ws.send(mkMouseEvent(ev, 'mouseRelease'))
+            }
+            function onMouseMove(ev) {
+                console.log(ev)
+                ws.send(mkMouseEvent(ev, 'mouseMove'))
+            }
+            image.addEventListener('mousedown', onMousePress, false);
+
         }
             
         function updateImage() {
