@@ -64,6 +64,64 @@ class WebSocketThread(threading.Thread):
             self.data = data
 
 
+class BrowserMouseEvent(object):
+    def __init__(self, root_widget, event):
+        self.root_widget = root_widget
+        self.event = event
+
+    def type(self):
+        ev_type = self.event['event_type']
+        typ = {
+            'mousePress': QtCore.QEvent.MouseButtonPress,
+            'mouseRelease': QtCore.QEvent.MouseButtonRelease,
+            'mouseMove': QtCore.QEvent.MouseMove,
+        }[ev_type]
+        return typ
+        
+    def pos(self):
+        ev = self.event
+        return QtCore.QPoint(ev['x'], ev['y'])
+    
+    def globalPos(self):
+        return self.root_widget.mapToGlobal(self.pos())
+    
+    def widgetPos(self, widget):
+        return widget.mapFromGlobal(self.globalPos())
+        
+    def widget(self):
+        widget = self.root_widget.childAt(self.pos())
+        if widget is None:
+            widget = self.root_widget
+        return widget
+        
+    def button(self):
+        # JS button coding is weird:
+        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.MiddleButton, QtCore.Qt.RightButton]
+        btn = all_btns[self.event['button']]
+        return btn
+        
+    def buttons(self):
+        ev = self.event
+        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.RightButton, QtCore.Qt.MiddleButton]
+        btns = QtCore.Qt.NoButton
+        for i in range(3):
+            if ev['buttons'] & 2**i > 0:
+                btns = btns | all_btns[i]
+        return btns
+    
+    def modifiers(self):
+        return QtCore.Qt.NoModifier        
+
+    def mouseEvent(self):
+        return QtGui.QMouseEvent(self.type(), self.pos(), self.globalPos(), self.button(), self.buttons(), self.modifiers())
+    
+    def wheelEvent(self):
+        if pg.Qt.lib in ['PyQt4', 'PySide']:
+            return QtGui.QWheelEvent(self.pos(), self.globalPos(), self.event['deltaY'], self.buttons(), self.modifiers())
+        else:
+            return QtGui.QWheelEvent(self.pos(), self.globalPos(), QtCore.QPoint(), QtCore.QPoint(self.event['deltaX'], self.event['deltaY']), self.event['deltaY'], QtCore.Qt.Vertical, self.buttons(), self.modifiers())
+
+    
 class WebSocketProxy(QtCore.QObject):
     
     _incoming_event_signal = QtCore.Signal(object)
@@ -118,64 +176,40 @@ class WebSocketProxy(QtCore.QObject):
         ev_type = ev['event_type']
         if ev_type.startswith('mouse'):
             self._mouse_event(ev)
+        elif ev_type == 'wheel':
+            self._wheel_event(ev)
         else:
             raise TypeError("Unknown event type: %s" % ev_type)
+        
+    def _wheel_event(self, ev):
+        ev = BrowserMouseEvent(self.widget, ev)
+        event = ev.wheelEvent()
+        QtGui.QApplication.sendEvent(ev.widget(), event)
         
     def _mouse_event(self, ev):
         # Attempt to re-implement Qt's mouse event handling.
         # QTest is not quite up to this task, and there does not seem to be
         # another way to simulate mouse events.
     
-        ev_type = ev['event_type']
-        typ = {
-            'mousePress': QtCore.QEvent.MouseButtonPress,
-            'mouseRelease': QtCore.QEvent.MouseButtonRelease,
-            'mouseMove': QtCore.QEvent.MouseMove,
-        }[ev_type]
-        pos = QtCore.QPoint(ev['x'], ev['y'])
+        ev = BrowserMouseEvent(self.widget, ev)
+        ev_type = ev.type()
         
         widget = self._mouse_grabber
         if widget is None:
             if ev_type == 'mouseRelease':
                 return
-            widget = self.widget.childAt(pos)
-            if widget is None:
-                widget = self.widget
+            widget = ev.widget()
             if ev_type == 'mouseMove' and not widget.hasMouseTracking():
                 return
-            
-        if ev_type == 'mousePress':
-            # if this is a press, find the widget under the mouse
-            widget = self.widget.childAt(pos)
-            if widget is None:
-                widget = self.widget
-        else:
-            # for all other types, send the event to the grabber (if any)
-            if widget is None:
-                return
         
-        print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
+        #print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
         global last_grabber
         last_grabber = widget
         
-        # get click position relative to child widget
-        globalPos = self.widget.mapToGlobal(pos)
-        pos2 = widget.mapFromGlobal(globalPos)
-        print("  ", pos2)
-        
-        # JS button coding is weird:
-        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.MiddleButton, QtCore.Qt.RightButton]
-        btn = all_btns[ev['button']]
-        
-        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.RightButton, QtCore.Qt.MiddleButton]
-        btns = QtCore.Qt.NoButton
-        for i in range(3):
-            if ev['buttons'] & 2**i > 0:
-                btns = btns | all_btns[i]
-        event = QtGui.QMouseEvent(typ, pos2, globalPos, btn, btns, QtCore.Qt.NoModifier)
+        event = ev.mouseEvent()
         QtGui.QApplication.sendEvent(widget, event)
         
-        print("  accepted:", event.isAccepted())
+        #print("  accepted:", event.isAccepted())
         
         if ev_type == 'mousePress' and event.isAccepted():
             self._mouse_grabber = widget
