@@ -5,7 +5,6 @@
         var lastEv;
         var image;
         window.onload = function() {
-            console.log('onload');
             image = document.getElementById("image");
             socket = new WebSocket('ws://127.0.0.1:12345');
             socket.onopen = function(ev) {
@@ -19,22 +18,24 @@
             }
 
             function mkMouseEvent(ev, type) {
-                return {'event': type, 'x': ev.x, 'y': ev.y, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey}
+                return JSON.stringify({'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey})
             }
             function onMousePress(ev) {
                 console.log(ev)
-                ws.send(mkMouseEvent(ev, 'mousePress'))
+                socket.send(mkMouseEvent(ev, 'mousePress'))
             }
             function onMouseRelease(ev) {
-                console.log(ev)
-                ws.send(mkMouseEvent(ev, 'mouseRelease'))
+                //console.log(ev)
+                socket.send(mkMouseEvent(ev, 'mouseRelease'))
             }
             function onMouseMove(ev) {
-                console.log(ev)
-                ws.send(mkMouseEvent(ev, 'mouseMove'))
+                //console.log(ev)
+                socket.send(mkMouseEvent(ev, 'mouseMove'))
             }
             image.addEventListener('mousedown', onMousePress, false);
-
+            image.addEventListener('mouseup', onMouseRelease, false);
+            image.addEventListener('mousemove', onMouseMove, false);
+            image.ondragstart = function() { return false; };
         }
             
         function updateImage() {
