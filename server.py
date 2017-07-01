@@ -97,7 +97,7 @@ class WebSocketProxy(QtCore.QObject):
         return False
     
     def _sendUpdate(self):
-        print("update!")
+        #print("update!")
         px = self.widget.grab()
         # must come after grab() because it causes a paintEvent
         self._updateTimer.stop()
@@ -145,19 +145,26 @@ class WebSocketProxy(QtCore.QObject):
             if widget is None:
                 return
         
-        print(ev_type, widget, ev['x'], ev['y'], ev['button'])
+        #print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
         global last_grabber
         last_grabber = widget
         
         # get click position relative to child widget
         pos2 = pos + self.widget.pos() - widget.pos()
         
-        btns = {0: QtCore.Qt.LeftButton, 1: QtCore.Qt.MiddleButton, 2: QtCore.Qt.RightButton}
-        btn = btns[ev['button']]
-        event = QtGui.QMouseEvent(typ, pos2, btn, btn, QtCore.Qt.NoModifier)
+        # JS button coding is weird:
+        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.MiddleButton, QtCore.Qt.RightButton]
+        btn = all_btns[ev['button']]
+        
+        all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.RightButton, QtCore.Qt.MiddleButton]
+        btns = QtCore.Qt.NoButton
+        for i in range(3):
+            if ev['buttons'] & 2**i > 0:
+                btns = btns | all_btns[i]
+        event = QtGui.QMouseEvent(typ, pos2, btn, btns, QtCore.Qt.NoModifier)
         QtGui.QApplication.sendEvent(widget, event)
         
-        print("  accepted:", event.isAccepted())
+        #print("  accepted:", event.isAccepted())
         
         if ev_type == 'mousePress' and event.isAccepted():
             self._mouse_grabber = widget
@@ -167,26 +174,30 @@ class WebSocketProxy(QtCore.QObject):
 
 if __name__ == '__main__':
     pg.mkQApp()
-    #plt = pg.PlotWidget()
-    #plt.plot(np.random.normal(size=100))
-    #plt.show()
-    #wsp = WebSocketProxy(plt)
-
-    w = QtGui.QWidget()
-    w.resize(400, 400)
-    l = QtGui.QGridLayout()
-    w.setLayout(l)
-    btns = []
-    def mkfn(i, j):
-        def fn():
-            print("clicked", i, j)
-        return fn
-    for i in range(4):
-        for j in range(4):
-            btn = QtGui.QPushButton('%d-%d' % (i, j))
-            btn.clicked.connect(mkfn(i, j))
-            btns.append(btn)
-            l.addWidget(btn, i, j)
     
-    wsp = WebSocketProxy(w)
-    w.show()
+    
+    plt = pg.PlotWidget()
+    plt.plot(np.random.normal(size=100))
+    plt.show()
+    wsp = WebSocketProxy(plt)
+
+
+
+    #w = QtGui.QWidget()
+    #w.resize(400, 400)
+    #l = QtGui.QGridLayout()
+    #w.setLayout(l)
+    #btns = []
+    #def mkfn(i, j):
+        #def fn():
+            #print("clicked", i, j)
+        #return fn
+    #for i in range(4):
+        #for j in range(4):
+            #btn = QtGui.QPushButton('%d-%d' % (i, j))
+            #btn.clicked.connect(mkfn(i, j))
+            #btns.append(btn)
+            #l.addWidget(btn, i, j)
+    
+    #wsp = WebSocketProxy(w)
+    #w.show()

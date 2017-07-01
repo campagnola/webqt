@@ -21,7 +21,7 @@
                 return JSON.stringify({'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey})
             }
             function onMousePress(ev) {
-                console.log(ev)
+                //console.log(ev)
                 socket.send(mkMouseEvent(ev, 'mousePress'))
             }
             function onMouseRelease(ev) {
@@ -36,6 +36,7 @@
             image.addEventListener('mouseup', onMouseRelease, false);
             image.addEventListener('mousemove', onMouseMove, false);
             image.ondragstart = function() { return false; };
+            image.oncontextmenu = function() { return false; };
         }
             
         function updateImage() {
