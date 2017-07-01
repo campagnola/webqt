@@ -145,12 +145,14 @@ class WebSocketProxy(QtCore.QObject):
             if widget is None:
                 return
         
-        #print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
+        print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
         global last_grabber
         last_grabber = widget
         
         # get click position relative to child widget
-        pos2 = pos + self.widget.pos() - widget.pos()
+        globalPos = self.widget.mapToGlobal(pos)
+        pos2 = widget.mapFromGlobal(globalPos)
+        print("  ", pos2)
         
         # JS button coding is weird:
         all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.MiddleButton, QtCore.Qt.RightButton]
@@ -161,10 +163,10 @@ class WebSocketProxy(QtCore.QObject):
         for i in range(3):
             if ev['buttons'] & 2**i > 0:
                 btns = btns | all_btns[i]
-        event = QtGui.QMouseEvent(typ, pos2, btn, btns, QtCore.Qt.NoModifier)
+        event = QtGui.QMouseEvent(typ, pos2, globalPos, btn, btns, QtCore.Qt.NoModifier)
         QtGui.QApplication.sendEvent(widget, event)
         
-        #print("  accepted:", event.isAccepted())
+        print("  accepted:", event.isAccepted())
         
         if ev_type == 'mousePress' and event.isAccepted():
             self._mouse_grabber = widget
@@ -175,17 +177,16 @@ class WebSocketProxy(QtCore.QObject):
 if __name__ == '__main__':
     pg.mkQApp()
     
+    w = QtGui.QSplitter(QtCore.Qt.Vertical)
     
     plt = pg.PlotWidget()
     plt.plot(np.random.normal(size=100))
-    plt.show()
-    wsp = WebSocketProxy(plt)
+    w.addWidget(plt)
+    
+    import pyqtgraph.console
+    console = pg.console.ConsoleWidget(namespace={'pg': pg, 'plt': plt})
+    w.addWidget(console)
 
-
-
-    #w = QtGui.QWidget()
-    #w.resize(400, 400)
-    #l = QtGui.QGridLayout()
     #w.setLayout(l)
     #btns = []
     #def mkfn(i, j):
@@ -199,5 +200,6 @@ if __name__ == '__main__':
             #btns.append(btn)
             #l.addWidget(btn, i, j)
     
-    #wsp = WebSocketProxy(w)
-    #w.show()
+    w.resize(400, 800)
+    wsp = WebSocketProxy(w)
+    w.show()
