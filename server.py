@@ -118,7 +118,7 @@ class BrowserMouseEvent(object):
         pos = widget.mapFromGlobal(global_pos)
         return QtGui.QMouseEvent(self.type(), pos, global_pos, self.button(), self.buttons(), self.modifiers())
     
-    def wheelEvent(self):
+    def wheelEvent(self, widget):
         global_pos = self.root_widget.mapToGlobal(self.pos())
         pos = widget.mapFromGlobal(global_pos)
         if pg.Qt.lib in ['PyQt4', 'PySide']:
@@ -201,8 +201,14 @@ class WebSocketProxy(QtCore.QObject):
         
     def _wheel_event(self, ev):
         ev = BrowserMouseEvent(self.widget, ev)
-        event = ev.wheelEvent()
-        QtGui.QApplication.sendEvent(ev.widget(), event)
+        w = ev.widget()
+        while w is not None:
+            event = ev.wheelEvent(w)
+            QtGui.QApplication.sendEvent(w, event)
+            if event.isAccepted():
+                break
+            else:
+                w = w.parent()
         
     def _mouse_event(self, ev):
         # Attempt to re-implement Qt's mouse event handling.
