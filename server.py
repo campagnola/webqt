@@ -80,7 +80,8 @@ class BrowserMouseEvent(object):
         
     def pos(self):
         ev = self.event
-        return QtCore.QPoint(ev['x'], ev['y'])
+        root_pos = QtCore.QPoint(ev['x'], ev['y'])
+        return root_pos
     
     def globalPos(self):
         return self.root_widget.mapToGlobal(self.pos())
@@ -89,12 +90,12 @@ class BrowserMouseEvent(object):
         return widget.mapFromGlobal(self.globalPos())
         
     def widget(self):
-        widget = self.root_widget.childAt(self.pos())
-        if widget is None:
-            widget = self.root_widget
-        return widget
+        return self.root_widget.childAt(self.pos()) or self.root_widget
         
     def button(self):
+        if self.event['event_type'] == 'mouseMove':
+            return QtCore.Qt.NoButton
+        
         # JS button coding is weird:
         all_btns = [QtCore.Qt.LeftButton, QtCore.Qt.MiddleButton, QtCore.Qt.RightButton]
         btn = all_btns[self.event['button']]
@@ -112,14 +113,18 @@ class BrowserMouseEvent(object):
     def modifiers(self):
         return QtCore.Qt.NoModifier        
 
-    def mouseEvent(self):
-        return QtGui.QMouseEvent(self.type(), self.pos(), self.globalPos(), self.button(), self.buttons(), self.modifiers())
+    def mouseEvent(self, widget):
+        global_pos = self.root_widget.mapToGlobal(self.pos())
+        pos = widget.mapFromGlobal(global_pos)
+        return QtGui.QMouseEvent(self.type(), pos, global_pos, self.button(), self.buttons(), self.modifiers())
     
     def wheelEvent(self):
+        global_pos = self.root_widget.mapToGlobal(self.pos())
+        pos = widget.mapFromGlobal(global_pos)
         if pg.Qt.lib in ['PyQt4', 'PySide']:
-            return QtGui.QWheelEvent(self.pos(), self.globalPos(), self.event['deltaY'], self.buttons(), self.modifiers())
+            return QtGui.QWheelEvent(pos, global_pos, self.event['deltaY'], self.buttons(), self.modifiers())
         else:
-            return QtGui.QWheelEvent(self.pos(), self.globalPos(), QtCore.QPoint(), QtCore.QPoint(self.event['deltaX'], self.event['deltaY']), self.event['deltaY'], QtCore.Qt.Vertical, self.buttons(), self.modifiers())
+            return QtGui.QWheelEvent(pos, global_pos, QtCore.QPoint(), QtCore.QPoint(self.event['deltaX'], self.event['deltaY']), self.event['deltaY'], QtCore.Qt.Vertical, self.buttons(), self.modifiers())
 
     
 class WebSocketProxy(QtCore.QObject):
@@ -169,17 +174,30 @@ class WebSocketProxy(QtCore.QObject):
     def _received_event(self, msg):
         # new event arrived from socket; send back to GUI thread
         # via signal
-        ev = json.loads(msg)
+        try:
+            ev = json.loads(msg)
+        except:
+            print(msg)
+            raise
         self._incoming_event_signal.emit(ev)
         
     def _handle_event(self, ev):
         ev_type = ev['event_type']
         if ev_type.startswith('mouse'):
+            self._update_window_pos(ev)
             self._mouse_event(ev)
         elif ev_type == 'wheel':
+            self._update_window_pos(ev)
             self._wheel_event(ev)
         else:
             raise TypeError("Unknown event type: %s" % ev_type)
+
+    def _update_window_pos(self, ev):
+        ev_pos = (ev['screenX'] - ev['x'], ev['screenY'] - ev['y'])
+        pos = self.widget.window().pos()
+        if ev_pos != (pos.x(), pos.y()):
+            self.widget.window().move(*ev_pos)
+            #print("New position: ", self.widget.window().pos())
         
     def _wheel_event(self, ev):
         ev = BrowserMouseEvent(self.widget, ev)
@@ -191,51 +209,84 @@ class WebSocketProxy(QtCore.QObject):
         # QTest is not quite up to this task, and there does not seem to be
         # another way to simulate mouse events.
     
+        ev_type = ev['event_type']
         ev = BrowserMouseEvent(self.widget, ev)
-        ev_type = ev.type()
         
         widget = self._mouse_grabber
+        #print("--------------------------------")
+        #print(ev_type, widget, ev.button(), ev.buttons())
+        
         if widget is None:
-            if ev_type == 'mouseRelease':
-                return
+            #print("  No grabber..")
             widget = ev.widget()
-            if ev_type == 'mouseMove' and not widget.hasMouseTracking():
+            if ev_type == 'mousePress':
+                #print("  new grabber:", widget)
+                self._mouse_grabber = widget
+            elif ev_type == 'mouseMove' and not widget.hasMouseTracking():
+                #print("    ignore move")
                 return
+        else:
+            if ev_type == 'mouseRelease':
+                #print("  released grabber")
+                self._mouse_grabber = None
         
-        #print(ev_type, widget, ev['x'], ev['y'], ev['button'], ev['buttons'])
-        global last_grabber
-        last_grabber = widget
-        
-        event = ev.mouseEvent()
-        QtGui.QApplication.sendEvent(widget, event)
-        
-        #print("  accepted:", event.isAccepted())
-        
-        if ev_type == 'mousePress' and event.isAccepted():
-            self._mouse_grabber = widget
-        elif ev_type == 'mouseRelease':
-            self._mouse_grabber = None
-    
+        w = widget
+        while w is not None:
+            event = ev.mouseEvent(w)
+            #print("  send event:", ev_type, w)
+            #print(" ", event.pos(), event.globalPos(), int(event.button()), int(event.buttons()))
+            QtGui.QApplication.sendEvent(widget, event)
+            if event.isAccepted():
+                #print("  accepted!")
+                break
+            else:
+                #print("  ignored; try parent..")
+                w = w.parent()
 
+        
 if __name__ == '__main__':
     pg.mkQApp()
 
 
-    w = pg.PlotWidget()
-    w.plot(np.random.normal(size=10000), antialias=True)
-    w.addLine(x=0, movable=True)
-    
-    #w = QtGui.QSplitter(QtCore.Qt.Vertical)
-    
-    #plt = pg.PlotWidget()
-    #plt.plot(np.random.normal(size=100))
-    #w.addWidget(plt)
-    
-    #import pyqtgraph.console
-    #console = pg.console.ConsoleWidget(namespace={'pg': pg, 'plt': plt})
-    #w.addWidget(console)
+    #w = pg.PlotWidget()
+    #w.plot(np.random.normal(size=10000), antialias=True)
+    #w.addLine(x=0, movable=True)
 
 
+    
+    w = QtGui.QSplitter(QtCore.Qt.Vertical)
+    
+    plt = pg.PlotWidget()
+    plt.plot(np.random.normal(size=100))
+    w.addWidget(plt)
+    
+    import pyqtgraph.console
+    console = pg.console.ConsoleWidget(namespace={'pg': pg, 'plt': plt})
+    w.addWidget(console)
+    
+    class MouseTestWidget(QtGui.QWidget):
+        def __init__(self):
+            QtGui.QWidget.__init__(self)
+            self.setMouseTracking(True)
+        def mousePressEvent(self, ev):
+            print("  press:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+        def mouseReleaseEvent(self, ev):
+            print("release:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+        def mouseMoveEvent(self, ev):
+            print("   move:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+        def paintEvent(self, ev):
+            p = QtGui.QPainter(self)
+            for x in range(0, self.width(), 10):
+                p.setPen(pg.mkPen('k'))
+                p.drawLine(x, 0, x, self.height())
+            for y in range(0, self.height(), 10):
+                p.setPen(pg.mkPen('k'))
+                p.drawLine(0, y, self.width(), y)
+            p.end()
+            
+    #mtw = MouseTestWidget()
+    #w.addWidget(mtw)
+            
 
 
     #w.setLayout(l)

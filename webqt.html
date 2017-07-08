@@ -18,25 +18,24 @@
             }
 
             function mkMouseEvent(ev, type) {
-                o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey}
+                o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey}
                 
                 if (type == 'wheel') {
                     o['deltaY'] = ev.deltaY
                     o['deltaX'] = ev.deltaX
                 }
-                    
                 return JSON.stringify(o)
             }
             function onMousePress(ev) {
-                //console.log(ev)
+//                 console.log(ev)
                 socket.send(mkMouseEvent(ev, 'mousePress'))
             }
             function onMouseRelease(ev) {
-                //console.log(ev)
+//                 console.log(ev)
                 socket.send(mkMouseEvent(ev, 'mouseRelease'))
             }
             function onMouseMove(ev) {
-                //console.log(ev)
+//                 console.log(ev)
                 socket.send(mkMouseEvent(ev, 'mouseMove'))
             }
             function onWheel(ev) {
@@ -66,6 +65,8 @@
     </script>
 </head>
 <body>
-    <img id="image">
+    <div style="padding: 20px;">
+        <img id="image">
+    </div>
 </body>
 </html>
