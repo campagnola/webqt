@@ -44,16 +44,23 @@
             }
             
             function mkKeyEvent(ev, type) {
-                console.log(ev)
+                //console.log(ev)
                 return JSON.stringify({'event_type': type, 'code': ev['code'], 'key': ev['key'], 'repeat': ev['repeat'], 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey})
             }
             function onKeyDown(ev) {
                 //console.log(ev)
                 socket.send(mkKeyEvent(ev, 'keyDown'))
+                // This is tricky: maybe we could wait for the server to say 
+                // whether it accepted the event, but this will probably make
+                // typing very unresponsive.
+                ev.stopPropagation()
+                ev.preventDefault()
             }
             function onKeyUp(ev) {
                 //console.log(ev)
                 socket.send(mkKeyEvent(ev, 'keyUp'))
+                ev.stopPropagation()
+                ev.preventDefault()
             }
             
             image.addEventListener('mousedown', onMousePress, false);

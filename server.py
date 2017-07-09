@@ -13,14 +13,26 @@ import PyQt5
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
-key_map = {'Key'+k:getattr(QtCore.Qt, 'Key_'+k) for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'}
+# Most key codes are identical between JS and Qt; only need to specify a few:
+key_map = {'Key'+k:getattr(QtCore.Qt, 'Key_'+k) for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}
+key_map.update({'Digit%d'%i:getattr(QtCore.Qt, 'Key_%d'%i) for i in range(10)})
 key_map.update({
+    'ArrowLeft': QtCore.Qt.Key_Left,
+    'ArrowUp': QtCore.Qt.Key_Up,
+    'ArrowRight': QtCore.Qt.Key_Right,
     'ArrowDown': QtCore.Qt.Key_Down,
-    'ArrowUp': QtCore.Qt.Key_Down,
-    'ArrowLeft': QtCore.Qt.Key_Down,
-    'ArrowRight': QtCore.Qt.Key_Down,
+    'Quote': QtCore.Qt.Key_Apostrophe,
+    'ShiftLeft': QtCore.Qt.Key_Shift,
+    'AltLeft': QtCore.Qt.Key_Alt,
+    'ControlLeft': QtCore.Qt.Key_Control,
+    'MetaLeft': QtCore.Qt.Key_Meta,
+    'ShiftRight': QtCore.Qt.Key_Shift,
+    'AltRight': QtCore.Qt.Key_Alt,
+    'ControlRight': QtCore.Qt.Key_Control,
+    'MetaRight': QtCore.Qt.Key_Meta,
+    'ContextMenu': QtCore.Qt.Key_Menu,
 })
-    
+
 
 modifier_map = {
     'altKey': QtCore.Qt.AltModifier,
@@ -278,7 +290,7 @@ class WebSocketProxy(QtCore.QObject):
     def _click_focus(self, widget):
         while widget is not None:
             if int(widget.focusPolicy() & QtCore.Qt.ClickFocus) > 0:
-                QtGui.QApplication.setActiveWindow(self.widget)
+                QtGui.QApplication.setActiveWindow(widget.window())
                 widget.setFocus(QtCore.Qt.MouseFocusReason)
                 return
             widget = widget.parent()
@@ -287,13 +299,17 @@ class WebSocketProxy(QtCore.QObject):
         typ = QtCore.QEvent.KeyPress if ev['event_type'] == 'keyDown' else QtCore.QEvent.KeyRelease
         key = key_map.get(ev['code'])
         if key is None:
-            print("Unknown browser key code: %s" % key)
+            key = getattr(QtCore.Qt, 'Key_' + ev['code'], None)
+        if key is None:
+            print("Unknown browser key code: %s" % ev['code'])
             return
         mods = modifiers(ev)
-        text = ev['key']
+        # Is there a better way to determine what text to insert?
+        text = ev['key'] if len(ev['key'])  == 1 else ''
         autorep = ev['repeat']
         count = 1
         event = QtGui.QKeyEvent(typ, key, mods, text, autorep, count)
+        QtGui.QApplication.sendEvent(QtGui.QApplication.focusWidget(), event)
     
         
 if __name__ == '__main__':
@@ -332,7 +348,7 @@ if __name__ == '__main__':
         def mouseMoveEvent(self, ev):
             print("   move:", self.name, ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
         def keyPressEvent(self, ev):
-            print(" key dn:", self.name, ev.key())
+            print(" key dn:", self.name, repr(ev.text()), ev.key())
         def keyReleaseEvent(self, ev):
             print(" key up:", self.name, ev.key())
         def focusInEvent(self, ev):
