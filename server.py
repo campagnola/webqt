@@ -13,8 +13,31 @@ import PyQt5
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
+key_map = {'Key'+k:getattr(QtCore.Qt, 'Key_'+k) for k in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'}
+key_map.update({
+    'ArrowDown': QtCore.Qt.Key_Down,
+    'ArrowUp': QtCore.Qt.Key_Down,
+    'ArrowLeft': QtCore.Qt.Key_Down,
+    'ArrowRight': QtCore.Qt.Key_Down,
+})
+    
+
+modifier_map = {
+    'altKey': QtCore.Qt.AltModifier,
+    'ctrlKey': QtCore.Qt.ControlModifier,
+    'shiftKey': QtCore.Qt.ShiftModifier,
+    'metaKey': QtCore.Qt.MetaModifier
+}
+
+def modifiers(ev):
+    mods = QtCore.Qt.NoModifier
+    for k,v in modifier_map.items():
+        if ev.get(k, False):
+            mods = mods | v
+    return mods
 
 
+    
 class WebSocketThread(threading.Thread):
     def __init__(self, event_callback):
         threading.Thread.__init__(self)
@@ -111,7 +134,7 @@ class BrowserMouseEvent(object):
         return btns
     
     def modifiers(self):
-        return QtCore.Qt.NoModifier        
+        return modifiers(self.event)
 
     def mouseEvent(self, widget):
         global_pos = self.root_widget.mapToGlobal(self.pos())
@@ -189,6 +212,8 @@ class WebSocketProxy(QtCore.QObject):
         elif ev_type == 'wheel':
             self._update_window_pos(ev)
             self._wheel_event(ev)
+        elif ev_type.startswith('key'):
+            self._key_event(ev)
         else:
             raise TypeError("Unknown event type: %s" % ev_type)
 
@@ -228,6 +253,7 @@ class WebSocketProxy(QtCore.QObject):
             if ev_type == 'mousePress':
                 #print("  new grabber:", widget)
                 self._mouse_grabber = widget
+                self._click_focus(widget)
             elif ev_type == 'mouseMove' and not widget.hasMouseTracking():
                 #print("    ignore move")
                 return
@@ -249,6 +275,26 @@ class WebSocketProxy(QtCore.QObject):
                 #print("  ignored; try parent..")
                 w = w.parent()
 
+    def _click_focus(self, widget):
+        while widget is not None:
+            if int(widget.focusPolicy() & QtCore.Qt.ClickFocus) > 0:
+                QtGui.QApplication.setActiveWindow(self.widget)
+                widget.setFocus(QtCore.Qt.MouseFocusReason)
+                return
+            widget = widget.parent()
+
+    def _key_event(self, ev):
+        typ = QtCore.QEvent.KeyPress if ev['event_type'] == 'keyDown' else QtCore.QEvent.KeyRelease
+        key = key_map.get(ev['code'])
+        if key is None:
+            print("Unknown browser key code: %s" % key)
+            return
+        mods = modifiers(ev)
+        text = ev['key']
+        autorep = ev['repeat']
+        count = 1
+        event = QtGui.QKeyEvent(typ, key, mods, text, autorep, count)
+    
         
 if __name__ == '__main__':
     pg.mkQApp()
@@ -271,15 +317,28 @@ if __name__ == '__main__':
     w.addWidget(console)
     
     class MouseTestWidget(QtGui.QWidget):
-        def __init__(self):
+        def __init__(self, name, accept, focus):
+            self.name = name
+            self.accept = accept
             QtGui.QWidget.__init__(self)
             self.setMouseTracking(True)
+            if focus:
+                self.setFocusPolicy(QtCore.Qt.StrongFocus)
         def mousePressEvent(self, ev):
-            print("  press:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+            print("  press:", self.name, ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+            ev.setAccepted(self.accept)
         def mouseReleaseEvent(self, ev):
-            print("release:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+            print("release:", self.name, ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
         def mouseMoveEvent(self, ev):
-            print("   move:", ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+            print("   move:", self.name, ev.pos(), ev.globalPos(), int(ev.button()), int(ev.buttons()))
+        def keyPressEvent(self, ev):
+            print(" key dn:", self.name, ev.key())
+        def keyReleaseEvent(self, ev):
+            print(" key up:", self.name, ev.key())
+        def focusInEvent(self, ev):
+            print("  focus: in", self.name)
+        def focusOutEvent(self, ev):
+            print("  focus: out", self.name)
         def paintEvent(self, ev):
             p = QtGui.QPainter(self)
             for x in range(0, self.width(), 10):
@@ -290,10 +349,12 @@ if __name__ == '__main__':
                 p.drawLine(0, y, self.width(), y)
             p.end()
             
-    #mtw = MouseTestWidget()
-    #w.addWidget(mtw)
+    mtw1 = MouseTestWidget('w1', True, focus=True)
+    w.addWidget(mtw1)
             
-
+    mtw2 = MouseTestWidget('w2', False, focus=False)
+    mtw2.setParent(mtw1)
+    mtw2.move(55, 55)
 
     #w.setLayout(l)
     #btns = []

@@ -18,7 +18,7 @@
             }
 
             function mkMouseEvent(ev, type) {
-                o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey}
+                o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey}
                 
                 if (type == 'wheel') {
                     o['deltaY'] = ev.deltaY
@@ -43,10 +43,25 @@
                 socket.send(mkMouseEvent(ev, 'wheel'))
             }
             
+            function mkKeyEvent(ev, type) {
+                console.log(ev)
+                return JSON.stringify({'event_type': type, 'code': ev['code'], 'key': ev['key'], 'repeat': ev['repeat'], 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey})
+            }
+            function onKeyDown(ev) {
+                //console.log(ev)
+                socket.send(mkKeyEvent(ev, 'keyDown'))
+            }
+            function onKeyUp(ev) {
+                //console.log(ev)
+                socket.send(mkKeyEvent(ev, 'keyUp'))
+            }
+            
             image.addEventListener('mousedown', onMousePress, false);
             image.addEventListener('mouseup', onMouseRelease, false);
             image.addEventListener('mousemove', onMouseMove, false);
             image.addEventListener('wheel', onWheel, false);
+            image.addEventListener('keydown', onKeyDown, false);
+            image.addEventListener('keyup', onKeyUp, false);
             image.ondragstart = function() { return false; };
             image.oncontextmenu = function() { return false; };
         }
@@ -66,7 +81,7 @@
 </head>
 <body>
     <div style="padding: 20px;">
-        <img id="image">
+        <img id="image" tabIndex=0>
     </div>
 </body>
 </html>
