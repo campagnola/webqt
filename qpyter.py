@@ -5,9 +5,10 @@ from traitlets import Bytes, Unicode
 
 
 # Send js widget definition to the browser
-jsfile = os.path.join(os.path.dirname(__file__), 'qpyter.js')
-js = open(jsfile, 'r').read()
-display(Javascript(js))
+for jsfile in ['webqt.js', 'qpyter.js']:
+    jsfile = os.path.join(os.path.dirname(__file__), jsfile)
+    js = open(jsfile, 'r').read()
+    display(Javascript(js))
 
 
 class QpyterWidget(widgets.DOMWidget):
