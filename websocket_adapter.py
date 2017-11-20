@@ -39,8 +39,9 @@ class WebSocketAdapter(threading.Thread):
     async def recv_events(self, websocket):
         while True:
             message = await websocket.recv()
+            ev = json.loads(message)
             try:
-                self.event_callback(message)
+                self.event_callback(ev)
             except Exception:
                 sys.excepthook(*sys.exc_info())
 
@@ -59,6 +60,6 @@ class WebSocketAdapter(threading.Thread):
         loop.run_until_complete(start_server)
         loop.run_forever()
 
-    def send(self, data):
+    def send_image(self, data):
         with self.lock:
             self.data = data

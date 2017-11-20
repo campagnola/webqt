@@ -4,22 +4,19 @@ var WebQt = (function () {
     pub.WebQtWidget = WebQtWidget;
     function WebQtWidget(socket, image) {
         this.socket = socket;
-        socket.onRecv = windowEvent.bind(this);
+        socket.onRecv = msgReceived.bind(this);
 
         this.lastImageUpdate = undefined;
-        if( image === undefined ) {
-            image = new Image();
-        }
         this.image = image;
 
         function mkMouseEvent(ev, type) {
-            o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey}
+            var o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey}
             
             if (type == 'wheel') {
                 o['deltaY'] = ev.deltaY
                 o['deltaX'] = ev.deltaX
             }
-            return JSON.stringify(o)
+            return o
         }
         function onMousePress(ev) {
             this.socket.send(mkMouseEvent(ev, 'mousePress'))
@@ -35,7 +32,7 @@ var WebQt = (function () {
         }
         
         function mkKeyEvent(ev, type) {
-            return JSON.stringify({'event_type': type, 'code': ev['code'], 'key': ev['key'], 'repeat': ev['repeat'], 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey})
+            return {'event_type': type, 'code': ev['code'], 'key': ev['key'], 'repeat': ev['repeat'], 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey}
         }
         function onKeyDown(ev) {
             this.socket.send(mkKeyEvent(ev, 'keyDown'))
@@ -61,8 +58,9 @@ var WebQt = (function () {
         this.image.oncontextmenu = function() { return false; };
 
         
-        function windowEvent(imageData) {
+        function msgReceived(imageData) {
             // Called when the socket receives an update from the server
+            // (might extend this to handle other types of message?)
             this.lastImageUpdate = imageData;
         }
         
@@ -97,11 +95,22 @@ var WebQt = (function () {
             this.onRecv(url);
         }
         
+        function send(obj) {
+            this.socket.send.call(this.socket, JSON.stringify(obj));
+        }
+        
         this.socket.onopen = onSocketOpen.bind(this);
         this.socket.onerror = onSocketError.bind(this);
         this.socket.onmessage = onSocketMessage.bind(this);
-        
-        this.send = this.socket.send.bind(this.socket);
+        this.send = send.bind(this);
     }
     return pub;
 })();
+
+
+try {
+    require.undef('webqt');
+    define('webqt', [], function() {return WebQt;});
+} catch(err) {
+    console.log("WebQt skipping require.js definition: " + err.toString());
+}

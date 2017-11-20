@@ -144,16 +144,11 @@ class WidgetProxy(QtCore.QObject):
         buf.open(QtCore.QIODevice.WriteOnly)
         px.save(buf, "JPG")
         data = ba.data()
-        self.socket.send(data)
+        self.socket.send_image(data)
         
-    def _received_event(self, msg):
+    def _received_event(self, ev):
         # new event arrived from socket; send back to GUI thread
         # via signal
-        try:
-            ev = json.loads(msg)
-        except:
-            print(msg)
-            raise
         self._incoming_event_signal.emit(ev)
         
     def _handle_event(self, ev):

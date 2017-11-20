@@ -1,41 +1,39 @@
 require.undef('qpyter');
 
-define('qpyter', ["jupyter-js-widgets"], function(widgets) {
+define('qpyter', ["jupyter-js-widgets", "webqt"], function(widgets, WebQt) {
 
     var QpyterView = widgets.DOMWidgetView.extend({
 
         initialize: function (parameters) {
             QpyterView.__super__.initialize.apply(this, [parameters]);
-            this.model.on('msg:custom', this.on_msg, this);
+            this.model.on('msg:custom', this.onMsg, this);
             
             // For some reason this is never called, so we rely on a separate message
             // to respond to image updates.
-            this.model.on('change:image_data', this.image_changed, this);
+            //this.model.on('change:image_data', this.imageChanged, this);
         },
         
         render: function() {
             this.image = document.createElement('img');
             this.el.append(this.image);
             this.qtwidget = WebQt.WebQtWidget(this, this.image);
+            // initial image update
+            this.imageChanged();
         },
         
-        on_msg: function(msg) {
-            var b = new Blob([this.model.get('image_data').buffer]);
-            this.url = URL.createObjectURL(b);
-            this.image.src = this.url;
+        onMsg: function(msg) {
+            this.imageChanged();
         },
 
-        image_changed: function() {
-            console.log("image data changed");
-            console.log(self.model.get('image_data'));
+        imageChanged: function() {
+            var b = new Blob([this.model.get('image_data').buffer]);
+            this.url = URL.createObjectURL(b);
+            this.onRecv(this.url); // sends image to qt widget
         },
 
         remove: function() {
             // Inform Python that the widget has been removed.
-            this.send({
-                msg_type: 'status',
-                contents: 'removed'
-            });
+            this.send({event_type: 'closed'});
         },
     });
 
