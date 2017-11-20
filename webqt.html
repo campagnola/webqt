@@ -1,89 +1,14 @@
 <html>
 <head>
+    <script src="webqt.js"></script>
     <script language="javascript">
         var socket;
-        var lastEv;
-        var image;
+        var widget;
         window.onload = function() {
-            image = document.getElementById("image");
-            socket = new WebSocket('ws://127.0.0.1:12345');
-            socket.onopen = function(ev) {
-                //console.log("open: " + ev.currentTarget.URL);
-            }
-            socket.onerror = function(err) {
-                console.log("error: " + err);
-            }
-            socket.onmessage = function(ev) {
-                lastEv = ev;
-            }
-
-            function mkMouseEvent(ev, type) {
-                o = {'event_type': type, 'x': ev.offsetX, 'y': ev.offsetY, 'screenX': ev.screenX, 'screenY': ev.screenY, 'button': ev.button, 'buttons': ev.buttons, 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey}
-                
-                if (type == 'wheel') {
-                    o['deltaY'] = ev.deltaY
-                    o['deltaX'] = ev.deltaX
-                }
-                return JSON.stringify(o)
-            }
-            function onMousePress(ev) {
-//                 console.log(ev)
-                socket.send(mkMouseEvent(ev, 'mousePress'))
-            }
-            function onMouseRelease(ev) {
-//                 console.log(ev)
-                socket.send(mkMouseEvent(ev, 'mouseRelease'))
-            }
-            function onMouseMove(ev) {
-//                 console.log(ev)
-                socket.send(mkMouseEvent(ev, 'mouseMove'))
-            }
-            function onWheel(ev) {
-                //console.log(ev)
-                socket.send(mkMouseEvent(ev, 'wheel'))
-            }
-            
-            function mkKeyEvent(ev, type) {
-                //console.log(ev)
-                return JSON.stringify({'event_type': type, 'code': ev['code'], 'key': ev['key'], 'repeat': ev['repeat'], 'altKey': ev.altKey, 'ctrlKey': ev.ctrlKey, 'shiftKey': ev.shiftKey, 'metaKey': ev.metaKey})
-            }
-            function onKeyDown(ev) {
-                //console.log(ev)
-                socket.send(mkKeyEvent(ev, 'keyDown'))
-                // This is tricky: maybe we could wait for the server to say 
-                // whether it accepted the event, but this will probably make
-                // typing very unresponsive.
-                ev.stopPropagation()
-                ev.preventDefault()
-            }
-            function onKeyUp(ev) {
-                //console.log(ev)
-                socket.send(mkKeyEvent(ev, 'keyUp'))
-                ev.stopPropagation()
-                ev.preventDefault()
-            }
-            
-            image.addEventListener('mousedown', onMousePress, false);
-            image.addEventListener('mouseup', onMouseRelease, false);
-            image.addEventListener('mousemove', onMouseMove, false);
-            image.addEventListener('wheel', onWheel, false);
-            image.addEventListener('keydown', onKeyDown, false);
-            image.addEventListener('keyup', onKeyUp, false);
-            image.ondragstart = function() { return false; };
-            image.oncontextmenu = function() { return false; };
+            var img = document.getElementById("image");
+            socket = new WebQt.WebSocketAdapter();
+            widget = new WebQt.WebQtWidget(socket, image=img);
         }
-            
-        function updateImage() {
-            if( lastEv == undefined ) {
-                return
-            }
-            url = URL.createObjectURL(lastEv.data);
-            image.src = url;
-            lastEv = undefined;
-        }
-        
-        window.setInterval(updateImage, 20)
-        
     </script>
 </head>
 <body>

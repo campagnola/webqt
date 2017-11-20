@@ -7,6 +7,9 @@ define('qpyter', ["jupyter-js-widgets"], function(widgets) {
         initialize: function (parameters) {
             QpyterView.__super__.initialize.apply(this, [parameters]);
             this.model.on('msg:custom', this.on_msg, this);
+            
+            // For some reason this is never called, so we rely on a separate message
+            // to respond to image updates.
             this.model.on('change:image_data', this.image_changed, this);
         },
             
